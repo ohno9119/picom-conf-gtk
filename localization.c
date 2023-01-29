@@ -54,6 +54,73 @@ void replace_spaces(char *str)
     str - ix;
 }
 
+void replace_slashes(char *str)
+{
+    int ix = 0;
+    while (*str)
+    {
+        if (*str == '/')
+            *str = '_';
+        str++;
+        ix++;
+    }
+    str - ix;
+}
+
+void replace_pr2(char *str)
+{
+    int ix = 0;
+    while (*str)
+    {
+        if (*str == '(')
+            *str = '_';
+        str++;
+        ix++;
+    }
+    str - ix;
+}
+
+void replace_pr(char *str)
+{
+    int ix = 0;
+    while (*str)
+    {
+        if (*str == ')')
+            *str = '_';
+        str++;
+        ix++;
+    }
+    str - ix;
+}
+
+void replace_dot(char *str)
+{
+    int ix = 0;
+    while (*str)
+    {
+        if (*str == '.')
+            *str = '_';
+        str++;
+        ix++;
+    }
+    str - ix;
+}
+
+void replace_qm(char *str)
+{
+	int a = 27;
+	char ca = a;
+    int ix = 0;
+    while (*str)
+    {
+        if (*str == ca)
+            *str = '_';
+        str++;
+        ix++;
+    }
+    str - ix;
+}
+
 char *lcgettext(const char *value)
 {
     const char *retval;
@@ -61,7 +128,12 @@ char *lcgettext(const char *value)
     char *Cvalue = malloc(strlen(value) + 1);
     strcpy(Cvalue, value);
     replace_spaces(Cvalue);
-
+	replace_slashes(Cvalue);
+	replace_pr(Cvalue);
+	replace_pr2(Cvalue);
+	replace_qm(Cvalue);
+	replace_dot(Cvalue);
+	
     if (file_loaded == 1)
     {
         if (config_lookup_string(&localcfg, Cvalue, &retval) != CONFIG_FALSE)
