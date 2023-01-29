@@ -23,5 +23,5 @@ This project depends on:
 - [`GTK+ 3.0 (libgtk-3-dev)`](https://www.gtk.org/)
 - [`libconfig (libconfig-dev)`](https://hyperrealm.github.io/libconfig)
 
-## Localizations 
-The localization system is currently complete aside from some minor bugs, this program loads in localized text strings from: /usr/share/picomconfgtk/locales/(LOCALE NAME).locale. An example localization has been provided as "example.locale".
+## Localization
+The localization system is very basic. It loads in localized text strings from: /usr/share/picomconfgtk/locales/(LOCALE NAME).locale. An example localization has been provided as "example.locale". Ideally a proper gettext based system should be implemented but I currently do not have the time to figure out gettext.
