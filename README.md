@@ -24,6 +24,4 @@ This project depends on:
 - [`libconfig (libconfig-dev)`](https://hyperrealm.github.io/libconfig)
 
 ## Localizations 
-The localization system is currently complete aside from some minor bugs.
-This program loads in localized text strings from: /usr/share/picomconfgtk/locales/(LOCALE NAME).locale.
-An example localization has been provided as "example.locale".
+The localization system is currently complete aside from some minor bugs, this program loads in localized text strings from: /usr/share/picomconfgtk/locales/(LOCALE NAME).locale. An example localization has been provided as "example.locale".
