@@ -6,8 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <libintl.h>
+#include <locale.h>
 #include "config.h"
 #include "ui.h"
+
+#define _(String) gettext(String)
+
 
 config_t cfg;
 config_setting_t *setting;
@@ -31,16 +36,16 @@ void show_config_error(int save)
     {
         if (config_error_file(&cfg))
         {
-            snprintf(message, sizeof message, "Config load failed: %s (%s:%d)\n", config_error_text(&cfg), config_error_file(&cfg), config_error_line(&cfg));
+            snprintf(message, sizeof message, _("Config load failed: %s (%s:%d)\n"), config_error_text(&cfg), config_error_file(&cfg), config_error_line(&cfg));
         }
         else
         {
-            sprintf(message, sizeof message, "Config load failed: %s (%s)\n", config_error_text(&cfg), get_config_file());
+            sprintf(message, sizeof message, _("Config load failed: %s (%s)\n"), config_error_text(&cfg), get_config_file());
         }
     }
     else
     {
-        sprintf(message, sizeof message, "Config save failed: %s (%s:%d)\n", config_error_text(&cfg), config_error_file(&cfg), config_error_line(&cfg));
+        sprintf(message, sizeof message, _("Config save failed: %s (%s:%d)\n"), config_error_text(&cfg), config_error_file(&cfg), config_error_line(&cfg));
     }
     show_error_dialog(message);
     destroy_config();

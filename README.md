@@ -5,36 +5,23 @@ A graphical configuration tool for picom.
 
 Building it is as simple as:
 ```
-$ make
+make
 ```
 
 Once built, you can use the install target to install picom-conf-gtk onto your system:
 ```
-# make install
+make install
 ```
 
 You can also use the uninstall target to remove it:
 ```
-#make uninstall
+make uninstall
 ```
 
 ## Dependencies
 This project depends on:
 - [`GTK+ 3.0 (libgtk-3-dev)`](https://www.gtk.org/)
 - [`libconfig (libconfig-dev)`](https://hyperrealm.github.io/libconfig)
-- [`GNU gettext (gettext)`](https://www.gnu.org/software/gettext/)
 
 ## Localization
-Localizations have been implemented through GNU gettext. This repository has a script that allows you to install localizations easily.
-
-To compile and install the localization files for your current locale (if available) use this command:
-```
-# ./localeinstaller.sh
-```
-To compile and install the localization files for a specified locale (if available) use the -l flag, like this:
-```
-# ./localeinstaller.sh -l (INSERT LOCALE HERE)
-```
-You can also skip installing the localization files by using the -c flag, you can also use the script as a regular user when used.
-
-
+The localization system is very basic. It loads in localized text strings from: /usr/share/picomconfgtk/locales/(LOCALE NAME).locale. An example localization has been provided as "example.locale". Ideally a proper gettext based system should be implemented but I currently do not have the time to figure out gettext.

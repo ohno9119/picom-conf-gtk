@@ -1,4 +1,3 @@
-#include "localization.h"
 #include <dirent.h>
 #include <gtk/gtk.h>
 #include <libconfig.h>
@@ -8,10 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <libintl.h>
+#include <locale.h>
 #include "ui.h"
 #include "config.h"
 
-#define _(String) lcgettext(String)
+#define _(String) gettext(String)
 
 GtkWidget *window;
 GtkWidget *abutton;
@@ -272,7 +273,7 @@ GtkAdjustment *win_det_resize_adj;
 GtkAdjustment *win_det_unredir_delay_adj;
 GdkRectangle shadow_ser_preview_gdk;
 config_xgeo shadow_ser_preview_se_geo;
-const char *blurring_page_pm_friendlynames[] = {"Gaussian", "Box", "Convolution"};
+const char *blurring_page_pm_friendlynames[] = {"Gaussian", "Box", "Convolution", "Dual kawase"};
 const char *blurring_page_pm_actualnames[] = {"gaussian", "box", "kernel", "dual_kawase"};
 const char *blurring_page_ck_friendlynames[] = {"3x3 box", "5x5 box", "3x3 gaussian", "5x5 gaussian", "7x7 gaussian", "9x9 gaussian", "11x11 gaussian"};
 const char *blurring_page_ck_actualnames[] = {"3x3box", "5x5box", "7x7box", "3x3gaussian", "5x5gaussian", "7x7gaussian", "9x9gaussian", "11x11gaussian"};
@@ -289,62 +290,6 @@ enum
     LIST_ITEM = 0,
     N_COLUMNS
 };
-
-// THIS GARBAGE COULD BE DONE A WHOLE LOT BETTER.
-void create_condition_edit_temp_shadow_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("shadow-exclude");
-}
-
-void create_condition_edit_temp_clip_shadow_above(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("clip-shadow-above");
-}
-
-void create_condition_edit_temp_fade_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("fade_exclude");
-}
-
-void create_condition_edit_temp_opacity_rule(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("opacity-rule");
-}
-
-void create_condition_edit_temp_focus_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("focus-exclude");
-}
-
-void create_condition_edit_temp_blur_background_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("blur-background-exclude");
-}
-
-void create_condition_edit_temp_unredir_if_possible_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("unredir-if-possible-exclude");
-}
-
-void create_condition_edit_temp_invert_color_include(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("invert-color-include");
-}
-
-void create_condition_edit_temp_window_shader_fg_rule(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("window-shader-fg-rule");
-}
-
-void create_condition_edit_temp_transparent_clipping_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("transparent-clipping-exclude");
-}
-
-void create_condition_edit_temp_rounded_corners_exclude(GtkWidget *widget, gpointer data)
-{
-    create_condition_edit_temp("rounded-corners-exclude");
-}
 
 void show_error_dialog(char *message)
 {
@@ -510,6 +455,164 @@ void blurring_update_ispk()
     }
 }
 
+
+void close_condition_edit_temp(GtkWidget *widget, gpointer data)
+{
+    gtk_widget_destroy(cedialog);
+}
+
+void condition_edit_temp_changed(GtkEditable *self, gpointer user_data)
+{
+    gtk_widget_set_sensitive(pbtn, FALSE);
+    if (strcmp(gtk_entry_get_text(condition_edit_temp_ent), "") != 0)
+    {
+        gtk_widget_set_sensitive(pbtn, TRUE);
+    }
+}
+
+void condition_edit_temp_on_changed(GtkWidget *widget, gpointer label)
+{
+    GtkTreeIter iter;
+    GtkTreeModel *model;
+    gtk_widget_set_sensitive(GTK_WIDGET(label), FALSE);
+
+    if (gtk_tree_selection_get_selected(GTK_TREE_SELECTION(widget), &model, &iter))
+    {
+        gtk_widget_set_sensitive(GTK_WIDGET(label), TRUE);
+    }
+}
+
+void create_condition_edit_temp_add(GtkWidget *widget, gpointer data)
+{
+    GtkListStore *store;
+    GtkTreeIter iter;
+
+    store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list)));
+
+    gtk_list_store_append(store, &iter);
+    gtk_list_store_set(store, &iter, LIST_ITEM, gtk_entry_get_text(condition_edit_temp_ent), -1);
+}
+
+void create_condition_edit_temp_remove(GtkWidget *widget, gpointer selection)
+{
+
+    GtkListStore *store;
+    GtkTreeModel *model;
+    GtkTreeIter iter;
+    gtk_window_set_resizable(GTK_WINDOW(cedialog), TRUE);
+
+    store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list)));
+    model = gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list));
+
+    if (gtk_tree_model_get_iter_first(model, &iter) == FALSE)
+    {
+        return;
+    }
+
+    if (gtk_tree_selection_get_selected(GTK_TREE_SELECTION(selection), &model, &iter))
+    {
+        gtk_list_store_remove(store, &iter);
+    }
+    gtk_window_resize(GTK_WINDOW(cedialog), 2, 2);
+    gtk_window_set_resizable(GTK_WINDOW(cedialog), FALSE);
+}
+
+void save_condition_edit_temp(GtkWidget *widget, const char *data)
+{
+    init_config();
+    open_config_file();
+    write_config_exclude_array_temp(condition_edit_temp_list, data);
+    write_config_file();
+    destroy_config();
+}
+
+void create_condition_edit_temp(GtkWidget *widget, const char *type)
+{
+    init_config();
+    open_config_file();
+    GtkWidget *content_area;
+    GtkWidget *dbox;
+    GtkWidget *hgrid;
+    GtkWidget *lgrid;
+    GtkWidget *mgrid;
+    GtkWidget *gbtn;
+    GtkWidget *kbtn;
+
+    cedialog = gtk_dialog_new();
+    g_signal_connect_swapped(cedialog, "response", G_CALLBACK(gtk_widget_destroy), cedialog);
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(cedialog));
+    gtk_window_set_resizable(GTK_WINDOW(cedialog), FALSE);
+    gtk_window_set_modal(GTK_WINDOW(cedialog), TRUE);
+    gtk_window_set_title(GTK_WINDOW(cedialog), _("Condition editor"));
+
+    dbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_widget_set_margin_bottom(dbox, 5);
+    gtk_widget_set_margin_top(dbox, 5);
+    gtk_widget_set_margin_start(dbox, 5);
+    gtk_widget_set_margin_end(dbox, 5);
+
+    condition_edit_temp_list = gtk_tree_view_new();
+    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(condition_edit_temp_list), FALSE);
+
+    create_condition_edit_temp_init_list(condition_edit_temp_list);
+    read_config_exclude_array_temp(condition_edit_temp_list, type);
+
+    // grid for the buttons
+    hgrid = gtk_grid_new();
+    gtk_widget_set_hexpand(hgrid, TRUE);
+    lgrid = gtk_grid_new();
+    gtk_grid_attach(GTK_GRID(hgrid), lgrid, 1, 0, 1, 1);
+    gtk_widget_set_hexpand(lgrid, TRUE);
+    gtk_widget_set_halign(lgrid, GTK_ALIGN_END);
+    mgrid = gtk_grid_new();
+    gtk_grid_attach(GTK_GRID(hgrid), mgrid, 0, 0, 1, 1);
+    gtk_widget_set_hexpand(mgrid, TRUE);
+    gtk_widget_set_halign(mgrid, GTK_ALIGN_END);
+
+    // apply button
+    kbtn = gtk_button_new_with_label(_("Apply"));
+    gtk_button_set_image(GTK_BUTTON(kbtn), gtk_image_new_from_stock("gtk-apply", GTK_ICON_SIZE_BUTTON));
+    gtk_widget_set_margin_end(kbtn, 8);
+    gtk_grid_attach(GTK_GRID(lgrid), kbtn, 0, 0, 1, 1);
+    g_signal_connect(G_OBJECT(kbtn), "clicked", G_CALLBACK(save_condition_edit_temp), type);
+    // cancel button
+    gbtn = gtk_button_new_with_label(_("Cancel"));
+    gtk_button_set_image(GTK_BUTTON(gbtn), gtk_image_new_from_stock("gtk-cancel", GTK_ICON_SIZE_BUTTON));
+    // gtk_widget_set_margin_end(gbtn, 5);
+    gtk_grid_attach(GTK_GRID(lgrid), gbtn, 1, 0, 1, 1);
+    g_signal_connect(G_OBJECT(gbtn), "clicked", G_CALLBACK(close_condition_edit_temp), G_OBJECT(window));
+
+    condition_edit_temp_ent = gtk_entry_new();
+    gtk_grid_attach(GTK_GRID(mgrid), condition_edit_temp_ent, 0, 0, 1, 1);
+    gtk_widget_set_margin_end(condition_edit_temp_ent, 8);
+    g_signal_connect(G_OBJECT(condition_edit_temp_ent), "changed", G_CALLBACK(condition_edit_temp_changed), G_OBJECT(window));
+
+    // apply button
+    pbtn = gtk_button_new_with_label(_("Add"));
+    gtk_button_set_image(GTK_BUTTON(pbtn), gtk_image_new_from_stock("gtk-add", GTK_ICON_SIZE_BUTTON));
+    gtk_widget_set_margin_end(pbtn, 8);
+    gtk_grid_attach(GTK_GRID(mgrid), pbtn, 1, 0, 1, 1);
+    g_signal_connect(G_OBJECT(pbtn), "clicked", G_CALLBACK(create_condition_edit_temp_add), G_OBJECT(window));
+    // cancel button
+    mbtn = gtk_button_new_with_label(_("Remove"));
+    gtk_button_set_image(GTK_BUTTON(mbtn), gtk_image_new_from_stock("gtk-remove", GTK_ICON_SIZE_BUTTON));
+    gtk_widget_set_margin_end(mbtn, 8);
+    gtk_grid_attach(GTK_GRID(mgrid), mbtn, 2, 0, 1, 1);
+    g_signal_connect(G_OBJECT(mbtn), "clicked", G_CALLBACK(create_condition_edit_temp_remove), gtk_tree_view_get_selection(GTK_TREE_VIEW(condition_edit_temp_list)));
+
+    gtk_widget_set_sensitive(pbtn, FALSE);
+    gtk_widget_set_sensitive(mbtn, FALSE);
+
+    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(condition_edit_temp_list)), "changed", G_CALLBACK(condition_edit_temp_on_changed), mbtn);
+
+    gtk_box_pack_start(GTK_BOX(dbox), condition_edit_temp_list, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(dbox), hgrid, TRUE, TRUE, 0);
+
+    gtk_container_add(GTK_CONTAINER(content_area), dbox);
+    gtk_widget_show_all(cedialog);
+    destroy_config();
+}
+
 void blurring_ckernel_onchanged(GtkComboBox *widget, gpointer user_data)
 {
     do_blurring_method_control_settings();
@@ -660,9 +763,8 @@ void create_blurring_page()
     blurring_page_bm = gtk_combo_box_text_new();
     for (int i = 0; i < G_N_ELEMENTS(blurring_page_pm_friendlynames); i++)
     {
-        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(blurring_page_bm), blurring_page_pm_friendlynames[i]);
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(blurring_page_bm), _(blurring_page_pm_friendlynames[i]));
     }
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(blurring_page_bm), _("Dual kawase"));
 
     if (blurring_enabled == 1)
     {
@@ -791,11 +893,11 @@ void create_blurring_page()
     gtk_widget_set_margin_start(blurring_page_exclude_edit_label, 5);
     gtk_label_set_xalign(GTK_LABEL(blurring_page_exclude_edit_label), 0.0);
 
-    blurring_page_exclude_edit = gtk_button_new_with_label("Edit");
+    blurring_page_exclude_edit = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(blurring_page_exclude_edit), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(blurring_page_exclude_edit, TRUE);
     gtk_widget_set_margin_start(blurring_page_exclude_edit, 100);
-    g_signal_connect(G_OBJECT(blurring_page_exclude_edit), "clicked", G_CALLBACK(create_condition_edit_temp_blur_background_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(blurring_page_exclude_edit), "clicked", G_CALLBACK(create_condition_edit_temp), "blur-background-exclude");
 
     gtk_grid_attach(GTK_GRID(blurring_page_grid), blurring_page_exclude_edit_label, 0, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(blurring_page_grid), blurring_page_exclude_edit, 1, 5, 1, 1);
@@ -882,7 +984,7 @@ void save_window_type_specific_overrides_edit(GtkWidget *widget, gpointer data)
 
     for (int i = 0; i < G_N_ELEMENTS(window_type_specific_overrides_types_friendlynames); i++)
     {
-        if (strcmp(window_type_specific_overrides_types_friendlynames[i], value) == 0)
+        if (strcmp(_(window_type_specific_overrides_types_friendlynames[i]), value) == 0)
         {
             cval = i;
         }
@@ -1066,7 +1168,7 @@ void create_window_type_specific_overrides_edit(GtkWidget *widget, gpointer data
 
     for (int i = 0; i < G_N_ELEMENTS(window_type_specific_overrides_types_friendlynames); i++)
     {
-        if (strcmp(window_type_specific_overrides_types_friendlynames[i], value) == 0)
+        if (strcmp(_(window_type_specific_overrides_types_friendlynames[i]), value) == 0)
         {
             cval = i;
         }
@@ -1077,12 +1179,7 @@ void create_window_type_specific_overrides_edit(GtkWidget *widget, gpointer data
     wtdialog = gtk_dialog_new();
     g_signal_connect_swapped(wtdialog, "response", G_CALLBACK(gtk_widget_destroy), wtdialog);
     content_area = gtk_dialog_get_content_area(GTK_DIALOG(wtdialog));
-    char *title = malloc(strlen(value) + strlen(_(" overrides")) + 1);
-    strcpy(title, value);
-    strcat(title, _(" overrides"));
-    gtk_window_set_title(GTK_WINDOW(wtdialog), title);
-    free(title);
-    free(value);
+    gtk_window_set_title(GTK_WINDOW(wtdialog), _("Override editor"));
     gtk_window_set_resizable(GTK_WINDOW(wtdialog), FALSE);
     gtk_window_set_modal(GTK_WINDOW(wtdialog), TRUE);
 
@@ -1348,162 +1445,6 @@ void create_window_type_specific_overrides_edit(GtkWidget *widget, gpointer data
     destroy_config();
 }
 
-void close_condition_edit_temp(GtkWidget *widget, gpointer data)
-{
-    gtk_widget_destroy(cedialog);
-}
-
-void condition_edit_temp_changed(GtkEditable *self, gpointer user_data)
-{
-    gtk_widget_set_sensitive(pbtn, FALSE);
-    if (strcmp(gtk_entry_get_text(condition_edit_temp_ent), "") != 0)
-    {
-        gtk_widget_set_sensitive(pbtn, TRUE);
-    }
-}
-
-void condition_edit_temp_on_changed(GtkWidget *widget, gpointer label)
-{
-    GtkTreeIter iter;
-    GtkTreeModel *model;
-    gtk_widget_set_sensitive(GTK_WIDGET(label), FALSE);
-
-    if (gtk_tree_selection_get_selected(GTK_TREE_SELECTION(widget), &model, &iter))
-    {
-        gtk_widget_set_sensitive(GTK_WIDGET(label), TRUE);
-    }
-}
-
-void create_condition_edit_temp_add(GtkWidget *widget, gpointer data)
-{
-    GtkListStore *store;
-    GtkTreeIter iter;
-
-    store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list)));
-
-    gtk_list_store_append(store, &iter);
-    gtk_list_store_set(store, &iter, LIST_ITEM, gtk_entry_get_text(condition_edit_temp_ent), -1);
-}
-
-void create_condition_edit_temp_remove(GtkWidget *widget, gpointer selection)
-{
-
-    GtkListStore *store;
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    gtk_window_set_resizable(GTK_WINDOW(cedialog), TRUE);
-
-    store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list)));
-    model = gtk_tree_view_get_model(GTK_TREE_VIEW(condition_edit_temp_list));
-
-    if (gtk_tree_model_get_iter_first(model, &iter) == FALSE)
-    {
-        return;
-    }
-
-    if (gtk_tree_selection_get_selected(GTK_TREE_SELECTION(selection), &model, &iter))
-    {
-        gtk_list_store_remove(store, &iter);
-    }
-    gtk_window_resize(GTK_WINDOW(cedialog), 2, 2);
-    gtk_window_set_resizable(GTK_WINDOW(cedialog), FALSE);
-}
-
-void save_condition_edit_temp(GtkWidget *widget, const char *data)
-{
-    init_config();
-    open_config_file();
-    write_config_exclude_array_temp(condition_edit_temp_list, data);
-    write_config_file();
-    destroy_config();
-}
-
-void create_condition_edit_temp(const char *type)
-{
-    init_config();
-    open_config_file();
-    GtkWidget *content_area;
-    GtkWidget *dbox;
-    GtkWidget *hgrid;
-    GtkWidget *lgrid;
-    GtkWidget *mgrid;
-    GtkWidget *gbtn;
-    GtkWidget *kbtn;
-
-    cedialog = gtk_dialog_new();
-    g_signal_connect_swapped(cedialog, "response", G_CALLBACK(gtk_widget_destroy), cedialog);
-    content_area = gtk_dialog_get_content_area(GTK_DIALOG(cedialog));
-    gtk_window_set_resizable(GTK_WINDOW(cedialog), FALSE);
-    gtk_window_set_modal(GTK_WINDOW(cedialog), TRUE);
-    gtk_window_set_title(GTK_WINDOW(cedialog), _("Condition editor"));
-
-    dbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_widget_set_margin_bottom(dbox, 5);
-    gtk_widget_set_margin_top(dbox, 5);
-    gtk_widget_set_margin_start(dbox, 5);
-    gtk_widget_set_margin_end(dbox, 5);
-
-    condition_edit_temp_list = gtk_tree_view_new();
-    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(condition_edit_temp_list), FALSE);
-
-    create_condition_edit_temp_init_list(condition_edit_temp_list);
-    read_config_exclude_array_temp(condition_edit_temp_list, type);
-
-    // grid for the buttons
-    hgrid = gtk_grid_new();
-    gtk_widget_set_hexpand(hgrid, TRUE);
-    lgrid = gtk_grid_new();
-    gtk_grid_attach(GTK_GRID(hgrid), lgrid, 1, 0, 1, 1);
-    gtk_widget_set_hexpand(lgrid, TRUE);
-    gtk_widget_set_halign(lgrid, GTK_ALIGN_END);
-    mgrid = gtk_grid_new();
-    gtk_grid_attach(GTK_GRID(hgrid), mgrid, 0, 0, 1, 1);
-    gtk_widget_set_hexpand(mgrid, TRUE);
-    gtk_widget_set_halign(mgrid, GTK_ALIGN_END);
-
-    // apply button
-    kbtn = gtk_button_new_with_label(_("Apply"));
-    gtk_button_set_image(GTK_BUTTON(kbtn), gtk_image_new_from_stock("gtk-apply", GTK_ICON_SIZE_BUTTON));
-    gtk_widget_set_margin_end(kbtn, 8);
-    gtk_grid_attach(GTK_GRID(lgrid), kbtn, 0, 0, 1, 1);
-    g_signal_connect(G_OBJECT(kbtn), "clicked", G_CALLBACK(save_condition_edit_temp), type);
-    // cancel button
-    gbtn = gtk_button_new_with_label(_("Cancel"));
-    gtk_button_set_image(GTK_BUTTON(gbtn), gtk_image_new_from_stock("gtk-cancel", GTK_ICON_SIZE_BUTTON));
-    // gtk_widget_set_margin_end(gbtn, 5);
-    gtk_grid_attach(GTK_GRID(lgrid), gbtn, 1, 0, 1, 1);
-    g_signal_connect(G_OBJECT(gbtn), "clicked", G_CALLBACK(close_condition_edit_temp), G_OBJECT(window));
-
-    condition_edit_temp_ent = gtk_entry_new();
-    gtk_grid_attach(GTK_GRID(mgrid), condition_edit_temp_ent, 0, 0, 1, 1);
-    gtk_widget_set_margin_end(condition_edit_temp_ent, 8);
-    g_signal_connect(G_OBJECT(condition_edit_temp_ent), "changed", G_CALLBACK(condition_edit_temp_changed), G_OBJECT(window));
-
-    // apply button
-    pbtn = gtk_button_new_with_label(_("Add"));
-    gtk_button_set_image(GTK_BUTTON(pbtn), gtk_image_new_from_stock("gtk-add", GTK_ICON_SIZE_BUTTON));
-    gtk_widget_set_margin_end(pbtn, 8);
-    gtk_grid_attach(GTK_GRID(mgrid), pbtn, 1, 0, 1, 1);
-    g_signal_connect(G_OBJECT(pbtn), "clicked", G_CALLBACK(create_condition_edit_temp_add), G_OBJECT(window));
-    // cancel button
-    mbtn = gtk_button_new_with_label(_("Remove"));
-    gtk_button_set_image(GTK_BUTTON(mbtn), gtk_image_new_from_stock("gtk-remove", GTK_ICON_SIZE_BUTTON));
-    gtk_widget_set_margin_end(mbtn, 8);
-    gtk_grid_attach(GTK_GRID(mgrid), mbtn, 2, 0, 1, 1);
-    g_signal_connect(G_OBJECT(mbtn), "clicked", G_CALLBACK(create_condition_edit_temp_remove), gtk_tree_view_get_selection(GTK_TREE_VIEW(condition_edit_temp_list)));
-
-    gtk_widget_set_sensitive(pbtn, FALSE);
-    gtk_widget_set_sensitive(mbtn, FALSE);
-
-    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(condition_edit_temp_list)), "changed", G_CALLBACK(condition_edit_temp_on_changed), mbtn);
-
-    gtk_box_pack_start(GTK_BOX(dbox), condition_edit_temp_list, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(dbox), hgrid, TRUE, TRUE, 0);
-
-    gtk_container_add(GTK_CONTAINER(content_area), dbox);
-    gtk_widget_show_all(cedialog);
-    destroy_config();
-}
 
 void create_window_type_specific_overrides_page()
 {
@@ -1526,7 +1467,7 @@ void create_window_type_specific_overrides_page()
     init_window_type_specific_overrides_list();
     for (int i = 0; i < G_N_ELEMENTS(window_type_specific_overrides_types_friendlynames); i++)
     {
-        add_to_window_type_specific_overrides_list(window_type_specific_overrides_types_friendlynames[i]);
+        add_to_window_type_specific_overrides_list(_(window_type_specific_overrides_types_friendlynames[i]));
     }
     g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(window_type_specific_overrides_list)), "changed", G_CALLBACK(window_type_specific_overrides_list_on_changed), (gpointer)window);
 
@@ -1586,7 +1527,7 @@ void create_rounded_corners_page()
     gtk_button_set_image(GTK_BUTTON(rounded_corners_page_exclude_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(rounded_corners_page_exclude_button, TRUE);
     gtk_widget_set_margin_start(rounded_corners_page_exclude_button, 100);
-    g_signal_connect(G_OBJECT(rounded_corners_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp_rounded_corners_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(rounded_corners_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp), "rounded-corners-exclude");
 
     gtk_grid_attach(GTK_GRID(rounded_corners_page_grid), rounded_corners_page_exclude_label, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(rounded_corners_page_grid), rounded_corners_page_exclude_button, 1, 1, 1, 1);
@@ -1702,11 +1643,11 @@ void create_opacity_page()
     gtk_widget_set_margin_start(opacity_page_rules_label, 5);
     gtk_label_set_xalign(GTK_LABEL(opacity_page_rules_label), 0.0);
 
-    opacity_page_rules = gtk_button_new_with_label("Edit");
+    opacity_page_rules = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(opacity_page_rules), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(opacity_page_rules, TRUE);
     gtk_widget_set_margin_start(opacity_page_rules, 100);
-    g_signal_connect(G_OBJECT(opacity_page_rules), "clicked", G_CALLBACK(create_condition_edit_temp_opacity_rule), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(opacity_page_rules), "clicked", G_CALLBACK(create_condition_edit_temp), "opacity-rule");
 
     gtk_grid_attach(GTK_GRID(opacity_page_spinners_grid), opacity_page_rules_label, 0, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(opacity_page_spinners_grid), opacity_page_rules, 1, 5, 1, 1);
@@ -2150,11 +2091,11 @@ void create_shadow_page()
     gtk_widget_set_margin_start(shadow_page_exclude_label, 5);
     gtk_label_set_xalign(GTK_LABEL(shadow_page_exclude_label), 0.0);
 
-    shadow_page_exclude_button = gtk_button_new_with_label("Edit");
+    shadow_page_exclude_button = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(shadow_page_exclude_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(shadow_page_exclude_button, TRUE);
     gtk_widget_set_margin_start(shadow_page_exclude_button, 100);
-    g_signal_connect(G_OBJECT(shadow_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp_shadow_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(shadow_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp), "shadow-exclude");
 
     gtk_grid_attach(GTK_GRID(shadow_page_spinnersandcolor_grid), shadow_page_exclude_label, 0, 5, 1, 1);
     gtk_grid_attach(GTK_GRID(shadow_page_spinnersandcolor_grid), shadow_page_exclude_button, 1, 5, 1, 1);
@@ -2164,11 +2105,11 @@ void create_shadow_page()
     gtk_widget_set_margin_start(shadow_page_clip_over_label, 5);
     gtk_label_set_xalign(GTK_LABEL(shadow_page_clip_over_label), 0.0);
 
-    shadow_page_clip_over_button = gtk_button_new_with_label("Edit");
+    shadow_page_clip_over_button = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(shadow_page_clip_over_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(shadow_page_clip_over_button, TRUE);
     gtk_widget_set_margin_start(shadow_page_clip_over_button, 100);
-    g_signal_connect(G_OBJECT(shadow_page_clip_over_button), "clicked", G_CALLBACK(create_condition_edit_temp_clip_shadow_above), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(shadow_page_clip_over_button), "clicked", G_CALLBACK(create_condition_edit_temp), "clip-shadow-above");
 
     gtk_grid_attach(GTK_GRID(shadow_page_spinnersandcolor_grid), shadow_page_clip_over_label, 0, 6, 1, 1);
     gtk_grid_attach(GTK_GRID(shadow_page_spinnersandcolor_grid), shadow_page_clip_over_button, 1, 6, 1, 1);
@@ -2178,7 +2119,7 @@ void create_shadow_page()
     gtk_widget_set_margin_start(shadow_page_shadow_exclude_region_label, 5);
     gtk_label_set_xalign(GTK_LABEL(shadow_page_shadow_exclude_region_label), 0.0);
 
-    shadow_page_shadow_exclude_region_button = gtk_button_new_with_label("Edit");
+    shadow_page_shadow_exclude_region_button = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(shadow_page_shadow_exclude_region_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(shadow_page_shadow_exclude_region_button, TRUE);
     gtk_widget_set_margin_start(shadow_page_shadow_exclude_region_button, 100);
@@ -2392,11 +2333,11 @@ void create_fade_page()
     gtk_widget_set_margin_start(fade_page_exclude_label, 5);
     gtk_label_set_xalign(GTK_LABEL(fade_page_exclude_label), 0.0);
 
-    fade_page_exclude_button = gtk_button_new_with_label("Edit");
+    fade_page_exclude_button = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(fade_page_exclude_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(fade_page_exclude_button, TRUE);
     gtk_widget_set_margin_start(fade_page_exclude_button, 100);
-    g_signal_connect(G_OBJECT(fade_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp_fade_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(fade_page_exclude_button), "clicked", G_CALLBACK(create_condition_edit_temp), "fade-exclude");
 
     gtk_grid_attach(GTK_GRID(fade_page_spinners_grid), fade_page_exclude_label, 0, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(fade_page_spinners_grid), fade_page_exclude_button, 1, 3, 1, 1);
@@ -2664,11 +2605,11 @@ void create_rendering_options_page()
     gtk_widget_set_margin_start(rendering_backend_color_invert_label, 5);
     gtk_label_set_xalign(GTK_LABEL(rendering_backend_color_invert_label), 0.0);
 
-    rendering_backend_color_invert = gtk_button_new_with_label("Edit");
+    rendering_backend_color_invert = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(rendering_backend_color_invert), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(rendering_backend_color_invert, TRUE);
     gtk_widget_set_margin_start(rendering_backend_color_invert, 195);
-    g_signal_connect(G_OBJECT(rendering_backend_color_invert), "clicked", G_CALLBACK(create_condition_edit_temp_invert_color_include), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(rendering_backend_color_invert), "clicked", G_CALLBACK(create_condition_edit_temp), "invert-color-include");
 
     gtk_grid_attach(GTK_GRID(rendering_options_page_grid), rendering_backend_color_invert_label, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(rendering_options_page_grid), rendering_backend_color_invert, 1, 1, 1, 1);
@@ -2717,11 +2658,11 @@ void create_rendering_options_page()
     gtk_widget_set_margin_start(rendering_tranclip_ex_label, 5);
     gtk_label_set_xalign(GTK_LABEL(rendering_tranclip_ex_label), 0.0);
 
-    rendering_tranclip_ex = gtk_button_new_with_label("Edit");
+    rendering_tranclip_ex = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(rendering_tranclip_ex), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(rendering_tranclip_ex, TRUE);
     gtk_widget_set_margin_start(rendering_tranclip_ex, 100);
-    g_signal_connect(G_OBJECT(rendering_tranclip_ex), "clicked", G_CALLBACK(create_condition_edit_temp_transparent_clipping_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(rendering_tranclip_ex), "clicked", G_CALLBACK(create_condition_edit_temp), "transparent-clipping-exclude");
 
     gtk_grid_attach(GTK_GRID(rendering_backend_gl_grid), rendering_tranclip_ex_label, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(rendering_backend_gl_grid), rendering_tranclip_ex, 1, 0, 1, 1);
@@ -2757,11 +2698,12 @@ void create_rendering_options_page()
     gtk_widget_set_margin_start(rendering_backend_gl_shader_rules_label, 5);
     gtk_label_set_xalign(GTK_LABEL(rendering_backend_gl_shader_rules_label), 0.0);
 
-    rendering_backend_gl_shader_rules_button = gtk_button_new_with_label("Edit");
+    rendering_backend_gl_shader_rules_button = gtk_button_new_with_label(_("Edit"));
+    rendering_backend_gl_shader_rules_button = gtk_button_new_with_label(_("Edit"));
     gtk_button_set_image(GTK_BUTTON(rendering_backend_gl_shader_rules_button), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(rendering_backend_gl_shader_rules_button, TRUE);
     gtk_widget_set_margin_start(rendering_backend_gl_shader_rules_button, 100);
-    g_signal_connect(G_OBJECT(rendering_backend_gl_shader_rules_button), "clicked", G_CALLBACK(create_condition_edit_temp_window_shader_fg_rule), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(rendering_backend_gl_shader_rules_button), "clicked", G_CALLBACK(create_condition_edit_temp), "window-shader-fg-rule");
 
     gtk_grid_attach(GTK_GRID(rendering_backend_gl_grid), rendering_backend_gl_shader_rules_label, 0, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(rendering_backend_gl_grid), rendering_backend_gl_shader_rules_button, 1, 3, 1, 1);
@@ -3034,7 +2976,7 @@ void create_win_det_page()
     gtk_button_set_image(GTK_BUTTON(win_det_unredir_exclude), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(win_det_unredir_exclude, TRUE);
     gtk_widget_set_margin_start(win_det_unredir_exclude, 100);
-    g_signal_connect(G_OBJECT(win_det_unredir_exclude), "clicked", G_CALLBACK(create_condition_edit_temp_unredir_if_possible_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(win_det_unredir_exclude), "clicked", G_CALLBACK(create_condition_edit_temp), "unredir-if-possible-exclude");
 
     gtk_grid_attach(GTK_GRID(win_det_page_grid), win_det_unredir_exclude_label, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(win_det_page_grid), win_det_unredir_exclude, 1, 1, 1, 1);
@@ -3062,7 +3004,7 @@ void create_win_det_page()
     gtk_button_set_image(GTK_BUTTON(opacity_page_focus), gtk_image_new_from_stock("gtk-edit", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_hexpand(opacity_page_focus, TRUE);
     gtk_widget_set_margin_start(opacity_page_focus, 100);
-    g_signal_connect(G_OBJECT(opacity_page_focus), "clicked", G_CALLBACK(create_condition_edit_temp_focus_exclude), G_OBJECT(window));
+    g_signal_connect(G_OBJECT(opacity_page_focus), "clicked", G_CALLBACK(create_condition_edit_temp), "focus-exclude");
 
     gtk_grid_attach(GTK_GRID(win_det_page_grid), opacity_page_focus_label, 0, 3, 1, 1);
     gtk_grid_attach(GTK_GRID(win_det_page_grid), opacity_page_focus, 1, 3, 1, 1);
@@ -3565,7 +3507,7 @@ void create_window_buttons()
     gtk_widget_set_halign(bsgrid, GTK_ALIGN_END);
 
     // ABOUT BUTTON
-    abutton = gtk_button_new_with_label("About");
+    abutton = gtk_button_new_with_label(_("About"));
     gtk_button_set_image(GTK_BUTTON(abutton), gtk_image_new_from_stock("gtk-about", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_margin_bottom(abutton, 8);
     gtk_widget_set_margin_start(abutton, 8);
@@ -3574,7 +3516,7 @@ void create_window_buttons()
     g_signal_connect(G_OBJECT(abutton), "clicked", G_CALLBACK(show_about_dialog), G_OBJECT(window));
 
     // APPLY BUTTON
-    sbutton = gtk_button_new_with_label("Apply");
+    sbutton = gtk_button_new_with_label(_("Apply"));
     gtk_button_set_image(GTK_BUTTON(sbutton), gtk_image_new_from_stock("gtk-apply", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_margin_bottom(sbutton, 8);
     gtk_widget_set_margin_end(sbutton, 8);
@@ -3583,7 +3525,7 @@ void create_window_buttons()
     g_signal_connect(G_OBJECT(sbutton), "clicked", G_CALLBACK(save_settings), G_OBJECT(window));
 
     // CANCEL BUTTON
-    cbutton = gtk_button_new_with_label("Cancel");
+    cbutton = gtk_button_new_with_label(_("Cancel"));
     gtk_button_set_image(GTK_BUTTON(cbutton), gtk_image_new_from_stock("gtk-cancel", GTK_ICON_SIZE_BUTTON));
     gtk_widget_set_margin_bottom(cbutton, 8);
     gtk_widget_set_margin_end(cbutton, 8);
@@ -3594,7 +3536,7 @@ void create_window_buttons()
 void create_window()
 {
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(window), _("Picom configuration"));
+    gtk_window_set_title(GTK_WINDOW(window), _("Picom Configuration"));
 
     box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     gtk_container_add(GTK_CONTAINER(window), box);
