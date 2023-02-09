@@ -1,12 +1,6 @@
-#include <dirent.h>
 #include <gtk/gtk.h>
 #include <libconfig.h>
-#include <libintl.h>
 #include <math.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <libintl.h>
 #include <locale.h>
 #include "ui.h"
@@ -1989,7 +1983,7 @@ void create_shadow_page()
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(shadow_page_enable_shadow_cb), TRUE);
     }
     shadow_page_enable_xinerama_crop_cb = gtk_check_button_new_with_label(_("Crop shadows of maximized windows from extended displays"));
-    if (read_config_bool_value("xinerama-shadow-crop") == 1)
+    if ((read_config_bool_value("xinerama-shadow-crop") == 1)  || (read_config_bool_value("crop-shadow-to-monitor") == 1))
     {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(shadow_page_enable_xinerama_crop_cb), TRUE);
     }
@@ -2174,10 +2168,12 @@ void save_shadow_page()
     if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(shadow_page_enable_xinerama_crop_cb)) == TRUE)
     {
         write_config_bool_value("xinerama-shadow-crop", 1);
+        write_config_bool_value("crop-shadow-to-monitor", 1);
     }
     else
     {
         write_config_bool_value("xinerama-shadow-crop", 0);
+        write_config_bool_value("crop-shadow-to-monitor", 0);
     }
 
     write_config_int_value("shadow-radius", gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(shadow_page_blur_spinner)));

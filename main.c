@@ -1,15 +1,10 @@
-#include <dirent.h>
 #include <gtk/gtk.h>
 #include <libconfig.h>
 #include <math.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <libintl.h>
 #include <locale.h>
-#include "config.h"
 #include "ui.h"
+#include "config.h"
 
 int main(int argc, char *argv[])
 {
